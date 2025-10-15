@@ -14,7 +14,7 @@ GENDER_CHOICES = (
 MARITAL_STATUS = (
     ('S', 'Single'),
     ('M', 'Married'),
-    ('D', 'Divorced')
+    ('D', 'Divorced'),
     ('B', 'Bereaved')
 )
 
