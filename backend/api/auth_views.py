@@ -13,22 +13,24 @@ from django.core.exceptions import ValidationError
 def register_user(request):
     """Register a new user"""
     username = request.data.get('username')
-    email = request.data.get('email'),
-    password = request.data.get('password'),
-    first_name = request.data.get('first_name'),
+    email = request.data.get('email')
+    password = request.data.get('password')
+    first_name = request.data.get('first_name')
     last_name = request.data.get('last_name')
 
-    #Vaalidaation
+    #Validation
     if not username or not password:
         return Response (
             {'error': 'Username and password are required'},
             status=status.HTTP_400_BAD_REQUEST
         )
+    
     if email and User.objects.filter(email=email).exists():
         return Response(
             {'error': 'Email already exist'},
             status=status.HTTP_400_BAD_REQUEST
         )
+    
     if User.objects.filter(username=username).exists():
         return Response(
            { 'error': 'Username already exist'},
@@ -41,7 +43,7 @@ def register_user(request):
         validate_password(password)
     except ValidationError as e:
         return Response(
-            {'error' : list(e.message)},
+            {'error' : list(e.messages)},
             status=status.HTTP_400_BAD_REQUEST
         )
     
