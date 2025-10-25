@@ -28,6 +28,8 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
+APPEND_SLASH = False
+
 
 # Application definition
 
@@ -41,18 +43,18 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'api.apps.ApiConfig',
-    'corsheaders'
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware'
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -131,7 +133,18 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",     # React dev server
+    "http://127.0.0.1:5173",
+]
+
+CORS_ALLOW_CREDENTIALS = True  # ✅ allow cookies/headers
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
+]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

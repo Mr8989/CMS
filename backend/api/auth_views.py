@@ -15,8 +15,7 @@ def register_user(request):
     username = request.data.get('username')
     email = request.data.get('email')
     password = request.data.get('password')
-    first_name = request.data.get('first_name')
-    last_name = request.data.get('last_name')
+
 
     #Validation
     if not username or not password:
@@ -53,8 +52,6 @@ def register_user(request):
         username=username,
         email=email,
         password=password,
-        first_name=first_name,
-        last_name=last_name
     )
     
 
@@ -67,8 +64,6 @@ def register_user(request):
             'id': user.id,
             'username': user.username,
             'email': user.email,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
         },
         'tokens': {
             'refresh': str(refresh),
