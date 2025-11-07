@@ -1,16 +1,23 @@
 import React, { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, sync } from 'framer-motion'
 import { Mail, Lock, Loader, UserPlus, Eye, EyeOff} from 'lucide-react'
 import { Link } from 'react-router-dom';
+import { useAuthStore } from '../stores/authStore';
 
 function Login() {
 const [email, setEmail] = useState();
 const [password, setPassword] = useState()
-const [loading, setLoading] =useState()
 const [showPassword, setShowPassword] = useState(false)
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
+const {login, loading} = useAuthStore();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const result = await login(
+      email,
+      password
+    )
+    console.log(result, "Login successfully")
   }
   return (
     <div className="flex flex-col justify-center items-center mt-20 py-12 sm:px-6 lg:px-8 w-full">
@@ -70,7 +77,7 @@ const [showPassword, setShowPassword] = useState(false)
                     type={showPassword ? "text" : "password"}
                     id="password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.password)}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter password"
                     className="block w-full px-5 pl-10 py-2 border border-gray-100 rounded-md shadow-sm placeholder-gray-400
                   text-sm"

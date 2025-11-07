@@ -11,6 +11,4 @@ urlpatterns = [
     path('report/<int:pk>/', views.attendance_report, name='attendance_report'),
     path('export/<int:pk>/', views.export_attendance_excel, name='export_attendance'),
     path('delete/<int:pk>/', views.delete_attendance_record, name='delete_attendance'),
-     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
