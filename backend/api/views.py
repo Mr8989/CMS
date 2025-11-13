@@ -232,9 +232,7 @@ def delete_member(request, pk):
     }, status=status.HTTP_200_OK)
 
 
-# ============================================
-# BULK IMPORT MEMBERS FROM EXCEL
-# ============================================
+# views.py - Updated import_members with correct column mapping
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
@@ -252,17 +250,44 @@ def import_members(request):
     
     try:
         df = pd.read_excel(excel_file)
-        print(f"📊 Excel columns: {df.columns.tolist()}")
+        print(f"📊 Excel columns found: {df.columns.tolist()}")
         
-        # Clean column names
+        # Clean column names - convert to lowercase and strip spaces
         df.columns = df.columns.str.strip().str.lower()
         
+        print(f"📊 Columns after lowercase: {df.columns.tolist()}")
+        
+        # UPDATED COLUMN MAPPING - with spaces!
+        column_mapping = {
+            'first name': 'first_name',
+            'middle name': 'middle_name',
+            'last name': 'last_name',
+            'date of birth': 'date_of_birth',
+            'phone number': 'phone_number',
+            'alternative phone number': 'alternative_phone',
+            'home address (digital address or  land mark)': 'home_address',
+            'occupation/profession': 'occupation',
+            'place of work/institutional name (include class/level if a student)': 'place_of_work',
+            'marital status': 'married_status',
+            'church membership status': 'church_membership_status',
+            'department / squad (select many as you can)': 'department',
+        }
+        
+        # Apply column mapping
+        df = df.rename(columns=column_mapping)
+        
+        print(f"📊 Columns after mapping: {df.columns.tolist()}")
+        
+        # Check required columns
         required_cols = ['first_name', 'last_name', 'phone_number', 'date_of_birth']
         missing_cols = [col for col in required_cols if col not in df.columns]
         
         if missing_cols:
             return Response(
-                {'error': f'Missing required columns: {", ".join(missing_cols)}'},
+                {
+                    'error': f'Missing required columns: {", ".join(missing_cols)}',
+                    'found_columns': df.columns.tolist()
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -271,58 +296,149 @@ def import_members(request):
         errors = []
         
         for idx, row in df.iterrows():
-            first_name = str(row.get('first_name', '')).strip()
-            last_name = str(row.get('last_name', '')).strip()
-            middle_name = str(row.get('middle_name', '')).strip()
-            
-            if not first_name or not last_name or first_name.lower() == 'nan' or last_name.lower() == 'nan':
-                skipped_count += 1
-                continue
-            
-            if middle_name.lower() == 'nan' or not middle_name:
-                middle_name = None
-            
-            # Check if member exists
-            existing = Members.objects.filter(
-                first_name__iexact=first_name,
-                last_name__iexact=last_name,
-                middle_name__iexact=middle_name
-            ).exists()
-            
-            if existing:
-                skipped_count += 1
-                continue
-            
             try:
-                Members.objects.create(
+                # Get names
+                first_name = str(row.get('first_name', '')).strip()
+                last_name = str(row.get('last_name', '')).strip()
+                middle_name = str(row.get('middle_name', '')).strip()
+                
+                # Skip if essential names are missing
+                if not first_name or not last_name or first_name.lower() == 'nan' or last_name.lower() == 'nan':
+                    skipped_count += 1
+                    continue
+                
+                # Handle middle name - ALLOW NULL
+                if not middle_name or middle_name.lower() == 'nan' or middle_name == '':
+                    middle_name = None
+                
+                # Clean phone number - REMOVE SPACES AND INVALID CHARS
+                phone_raw = str(row.get('phone_number', '')).strip()
+                
+                # Handle phone numbers starting with 'O' (letter O instead of 0)
+                if phone_raw.upper().startswith('O'):
+                    phone_raw = '0' + phone_raw[1:]
+                
+                # Remove all non-digit characters
+                phone_number = ''.join(filter(str.isdigit, phone_raw))
+                
+                # Skip if phone is invalid
+                if not phone_number or len(phone_number) < 9:
+                    errors.append(f"Row {idx + 2}: Invalid phone number '{phone_raw}'")
+                    skipped_count += 1
+                    continue
+                
+                # Truncate if too long (max 15 digits)
+                if len(phone_number) > 15:
+                    phone_number = phone_number[:15]
+                
+                # Check if member exists
+                existing = Members.objects.filter(
+                    first_name__iexact=first_name,
+                    last_name__iexact=last_name
+                ).exists()
+                
+                if existing:
+                    print(f"⚠️ Skipping duplicate: {first_name} {last_name}")
+                    skipped_count += 1
+                    continue
+                
+                # Parse date of birth
+                try:
+                    dob = pd.to_datetime(row.get('date_of_birth')).date()
+                except:
+                    errors.append(f"Row {idx + 2}: Invalid date format")
+                    skipped_count += 1
+                    continue
+                
+                # Parse gender
+                gender_val = str(row.get('gender', 'M')).strip().upper()
+                if gender_val in ['MALE', 'M', 'MAN']:
+                    gender = 'M'
+                elif gender_val in ['FEMALE', 'F', 'WOMAN']:
+                    gender = 'F'
+                else:
+                    gender = 'M'
+                
+                # Parse marital status
+                marital_val = str(row.get('married_status', 'S')).strip().upper()
+                if marital_val in ['MARRIED', 'M', 'YES']:
+                    married_status = 'M'
+                elif marital_val in ['SINGLE', 'S', 'NO']:
+                    married_status = 'S'
+                elif marital_val in ['DIVORCED', 'D']:
+                    married_status = 'D'
+                elif marital_val in ['WIDOWED', 'W']:
+                    married_status = 'W'
+                else:
+                    married_status = 'S'
+                
+                # Parse church membership status
+                church_status_val = str(row.get('church_membership_status', 'M')).strip().upper()
+                if church_status_val in ['MEMBER', 'M']:
+                    church_status = 'M'
+                elif church_status_val in ['VISITOR', 'V']:
+                    church_status = 'V'
+                elif church_status_val in ['NEW CONVERT', 'N', 'NEW']:
+                    church_status = 'N'
+                else:
+                    church_status = 'M'
+                
+                # Parse ministry
+                ministry_val = str(row.get('ministry', 'Y')).strip().upper()
+                if ministry_val in ['YOUTH', 'Y']:
+                    ministry = 'Y'
+                elif ministry_val in ['CHILDREN', 'C']:
+                    ministry = 'C'
+                elif ministry_val in ['WOMEN', 'W']:
+                    ministry = 'W'
+                elif ministry_val in ['MEN', 'M']:
+                    ministry = 'M'
+                elif ministry_val in ['USHER', 'U']:
+                    ministry = 'U'
+                else:
+                    ministry = 'O'  # Other
+                
+                # Create member
+                member = Members.objects.create(
                     first_name=first_name,
                     middle_name=middle_name,
                     last_name=last_name,
-                    gender=str(row.get('gender', 'M')).strip().upper()[0] if str(row.get('gender', 'M')).strip() else 'M',
-                    phone_number=str(row.get('phone_number', '')).strip(),
-                    date_of_birth=pd.to_datetime(row.get('date_of_birth')).date(),
-                    married_status=str(row.get('married_status', 'S')).strip().upper()[0] if str(row.get('married_status', 'S')).strip() else 'S',
-                    home_address=str(row.get('home_address', '')).strip(),
-                    occupation=str(row.get('occupation', '')).strip(),
-                    place_of_work=str(row.get('place_of_work', '')).strip(),
-                    church_membership_status=str(row.get('church_membership_status', 'M')).strip().upper()[0] if str(row.get('church_membership_status', 'M')).strip() else 'M',
-                    ministry=str(row.get('ministry', 'Y')).strip().upper()[0] if str(row.get('ministry', 'Y')).strip() else 'Y',
+                    gender=gender,
+                    phone_number=phone_number,
+                    date_of_birth=dob,
+                    married_status=married_status,
+                    home_address=str(row.get('home_address', '')).strip() or '',
+                    occupation=str(row.get('occupation', '')).strip() or '',
+                    place_of_work=str(row.get('place_of_work', '')).strip() or '',
+                    church_membership_status=church_status,
+                    ministry=ministry,
                 )
+                
+                print(f"✅ Created: {member.get_full_name()}")
                 created_count += 1
+                
             except Exception as e:
-                errors.append(f"Row {idx + 1}: {str(e)}")
+                error_msg = str(e)
+                errors.append(f"Row {idx + 2}: {error_msg}")
+                print(f"❌ Error on row {idx + 2}: {error_msg}")
+                skipped_count += 1
         
         print(f"✅ Import complete: {created_count} created, {skipped_count} skipped")
         
         return Response({
-            'message': 'Import completed',
+            'message': 'Import completed successfully',
             'created': created_count,
             'skipped': skipped_count,
-            'errors': errors[:10] if errors else []
+            'total_rows': len(df),
+            'errors': errors[:20] if errors else [],
+            'success': True
         }, status=status.HTTP_201_CREATED)
         
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
+        print(f"❌ Fatal error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
         return Response(
             {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR

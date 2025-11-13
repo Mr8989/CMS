@@ -25,7 +25,7 @@ export const useMembersStore = create((set, get) => ({
             return res.data;
         } catch (error) {
             set({ loading: false });
-            toast.error('Failed to load members');
+            toast.error('Failed to import members');
             throw error;
         }
     },
@@ -103,11 +103,17 @@ export const useMembersStore = create((set, get) => ({
     // Import members from Excel
     importMembers: async (file) => {
         set({ loading: true });
+        const token = localStorage.getItem('accessToken')
         try {
             const formData = new FormData();
             formData.append('excel_file', file);
 
-            const res = await axiosInstance.post('api/members/import/', formData);
+            const res = await axiosInstance.post('api/members/import/', formData, {
+                headers:{
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
 
             toast.success(`Imported ${res.data.created} members!`);
             set({ loading: false });
@@ -119,6 +125,7 @@ export const useMembersStore = create((set, get) => ({
             set({ loading: false });
             const errorMessage = error.response?.data?.error || 'Failed to import members';
             toast.error(errorMessage);
+            console.log('error', errorMessage)
             throw error;
         }
     },

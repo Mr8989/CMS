@@ -80,13 +80,13 @@ Mary,,Adjei,F,0201234567,1985-05-20,S,456 Oak Ave,Nurse,City Hospital,M,W`;
 
           <button
             onClick={downloadTemplate}
-            className="w-full mb-6 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 flex items-center justify-center gap-2"
+            className="w-full mb-6 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-400 flex items-center justify-center gap-2"
           >
             <Download className="w-5 h-5" />
             Download Template
           </button>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6 text-black">
             <div>
               <label className="block text-lg font-medium text-gray-700 mb-2">
                 📄 Select Excel File:
@@ -109,7 +109,7 @@ Mary,,Adjei,F,0201234567,1985-05-20,S,456 Oak Ave,Nurse,City Hospital,M,W`;
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 bg-gradient-to-r bg-gray-600 text-white py-4 rounded-lg font-semibold hover:bg-gray-400 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <Upload className="w-5 h-5" />
                 {loading ? "Importing..." : "Import Members"}
