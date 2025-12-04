@@ -16,64 +16,87 @@ from .models import Members, Attendance, AttendanceRecord
 # ============================================
 # GET ALL MEMBERS
 # ============================================
+# views.py - Fixed get_all_members function
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_members(request):
     """Get all members with optional search and filtering"""
     print("👥 Fetching all members...")
     
-    # Get query parameters
-    search = request.GET.get('search', '')
-    ministry = request.GET.get('ministry', '')
-    gender = request.GET.get('gender', '')
-    
-    members = Members.objects.all()
-    
-    # Apply filters
-    if search:
-        members = members.filter(
-            Q(first_name__icontains=search) |
-            Q(last_name__icontains=search) |
-            Q(middle_name__icontains=search) |
-            Q(phone_number__icontains=search) |
-            Q(email__icontains=search)
+    try:
+        # Get query parameters
+        search = request.GET.get('search', '').strip()
+        ministry = request.GET.get('ministry', '').strip()
+        gender = request.GET.get('gender', '').strip()
+        
+        print(f"🔍 Search params: search='{search}', ministry='{ministry}', gender='{gender}'")
+        
+        members = Members.objects.all()
+        
+        # Apply filters
+        if search:
+            members = members.filter(
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(middle_name__icontains=search) |
+                Q(phone_number__icontains=search)
+            )
+            print(f"🔍 Search filtered to {members.count()} members")
+        
+        if ministry:
+            members = members.filter(ministry=ministry)
+            print(f"🔍 Ministry filtered to {members.count()} members")
+        
+        if gender:
+            members = members.filter(gender=gender)
+            print(f"🔍 Gender filtered to {members.count()} members")
+        
+        members = members.order_by('first_name', 'last_name')
+        
+        # Serialize members data
+        members_data = []
+        for member in members:
+            try:
+                members_data.append({
+                    'id': member.id,
+                    'first_name': member.first_name,
+                    'middle_name': member.middle_name or '',
+                    'last_name': member.last_name,
+                    'full_name': member.get_full_name(),
+                    'gender': member.gender,
+                    'gender_display': member.get_gender_display(),
+                    'phone_number': member.phone_number,
+                    'date_of_birth': member.date_of_birth,
+                    'married_status': member.married_status,
+                    'married_status_display': member.get_married_status_display(),
+                    'home_address': member.home_address,
+                    'occupation': member.occupation,
+                    'place_of_work': member.place_of_work,
+                    'church_membership_status': member.church_membership_status,
+                    'church_membership_status_display': member.get_church_membership_status_display(),
+                    'ministry': member.ministry,
+                    'ministry_display': member.get_ministry_display(),
+                })
+            except Exception as e:
+                print(f"Error serializing member {member.id}: {str(e)}")
+                continue
+        
+        print(f" Returning {len(members_data)} members")
+        
+        return Response({
+            'members': members_data,
+            'total': len(members_data)
+        })
+        
+    except Exception as e:
+        print(f"Error in get_all_members: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        return Response(
+            {'error': str(e), 'detail': 'Failed to fetch members'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-    
-    if ministry:
-        members = members.filter(ministry=ministry)
-    
-    if gender:
-        members = members.filter(gender=gender)
-    
-    members = members.order_by('first_name', 'last_name')
-    
-    members_data = [{
-        'id': member.id,
-        'first_name': member.first_name,
-        'middle_name': member.middle_name or '',
-        'last_name': member.last_name,
-        'full_name': member.get_full_name(),
-        'gender': member.gender,
-        'gender_display': member.get_gender_display(),
-        'phone_number': member.phone_number,
-        'date_of_birth': member.date_of_birth,
-        'married_status': member.married_status,
-        'married_status_display': member.get_married_status_display(),
-        'home_address': member.home_address,
-        'occupation': member.occupation,
-        'place_of_work': member.place_of_work,
-        'church_membership_status': member.church_membership_status,
-        'church_membership_status_display': member.get_church_membership_status_display(),
-        'ministry': member.ministry,
-        'ministry_display': member.get_ministry_display(),
-    } for member in members]
-    
-    print(f"✅ Found {len(members_data)} members")
-    
-    return Response({
-        'members': members_data,
-        'total': len(members_data)
-    })
 
 # ============================================
 # GET SINGLE MEMBER
@@ -155,7 +178,7 @@ def create_member(request):
             ministry=request.data.get('ministry', 'Y'),
         )
         
-        print(f"✅ Member created: {member.get_full_name()}")
+        print(f" Member created: {member.get_full_name()}")
         
         return Response({
             'id': member.id,
@@ -167,7 +190,7 @@ def create_member(request):
         }, status=status.HTTP_201_CREATED)
         
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
+        print(f" Error: {str(e)}")
         return Response(
             {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -200,7 +223,7 @@ def update_member(request, pk):
     
     member.save()
     
-    print(f"✅ Member updated: {member.get_full_name()}")
+    print(f"Member updated: {member.get_full_name()}")
     
     return Response({
         'message': 'Member updated successfully',
@@ -224,7 +247,7 @@ def delete_member(request, pk):
     
     member.delete()
     
-    print(f"✅ Deleted member: {full_name}")
+    print(f" Deleted member: {full_name}")
     
     return Response({
         'message': f'Member {full_name} deleted successfully',
@@ -338,7 +361,7 @@ def import_members(request):
                 ).exists()
                 
                 if existing:
-                    print(f"⚠️ Skipping duplicate: {first_name} {last_name}")
+                    print(f"Skipping duplicate: {first_name} {last_name}")
                     skipped_count += 1
                     continue
                 
@@ -414,16 +437,16 @@ def import_members(request):
                     ministry=ministry,
                 )
                 
-                print(f"✅ Created: {member.get_full_name()}")
+                print(f"Created: {member.get_full_name()}")
                 created_count += 1
                 
             except Exception as e:
                 error_msg = str(e)
                 errors.append(f"Row {idx + 2}: {error_msg}")
-                print(f"❌ Error on row {idx + 2}: {error_msg}")
+                print(f"Error on row {idx + 2}: {error_msg}")
                 skipped_count += 1
         
-        print(f"✅ Import complete: {created_count} created, {skipped_count} skipped")
+        print(f"Import complete: {created_count} created, {skipped_count} skipped")
         
         return Response({
             'message': 'Import completed successfully',
@@ -435,7 +458,7 @@ def import_members(request):
         }, status=status.HTTP_201_CREATED)
         
     except Exception as e:
-        print(f"❌ Fatal error: {str(e)}")
+        print(f" Fatal error: {str(e)}")
         import traceback
         traceback.print_exc()
         
@@ -478,7 +501,7 @@ def member_statistics(request):
 @permission_classes([IsAuthenticated])
 def attendance_history(request):
     """Get all attendance records as JSON"""
-    print("📊 Fetching attendance history...")
+    print("Fetching attendance history...")
     
     records = AttendanceRecord.objects.all().annotate(
         present_count=Count('attendances', filter=Q(attendances__present=True)),
@@ -494,7 +517,7 @@ def attendance_history(request):
         'created_at': record.created_at,
     } for record in records]
     
-    print(f"✅ Found {len(records_data)} records")
+    print(f"Found {len(records_data)} records")
     
     return Response({
         'records': records_data,
@@ -511,8 +534,6 @@ def attendance_history(request):
 def upload_attendance(request):
     """Upload attendance from Excel file - returns JSON"""
     print("📥 Upload request received")
-    print(f"📋 Request data: {request.data}")
-    print(f"📁 Files: {request.FILES}")
     
     service_date = request.data.get('service_date')
     service_type = request.data.get('service_type', 'Sunday Service')
@@ -522,33 +543,47 @@ def upload_attendance(request):
     print(f"⛪ Service: {service_type}")
     print(f"📄 File: {excel_file.name if excel_file else 'No file'}")
     
-    # Validation
-    if not service_date:
+    if not service_date or not service_type or not excel_file:
         return Response(
-            {'error': 'Service date is required'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    if not service_type:
-        return Response(
-            {'error': 'Service type is required'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    if not excel_file:
-        return Response(
-            {'error': 'Excel file is required'},
+            {'error': 'Missing required fields'},
             status=status.HTTP_400_BAD_REQUEST
         )
 
     try:
+        # Auto-detect engine
+        file_name = excel_file.name.lower()
+        if file_name.endswith('.xlsx'):
+            engine = 'openpyxl'
+        elif file_name.endswith('.xls'):
+            engine = 'xlrd'
+        else:
+            engine = None
+        
         # Read Excel file
-        df = pd.read_excel(excel_file)
-        print(f"📊 Excel columns: {df.columns.tolist()}")
-        print(f"📊 Total rows: {len(df)}")
+        if engine:
+            try:
+                df = pd.read_excel(excel_file, engine=engine)
+            except:
+                alternative = 'xlrd' if engine == 'openpyxl' else 'openpyxl'
+                df = pd.read_excel(excel_file, engine=alternative)
+        else:
+            df = pd.read_excel(excel_file)
+        
+        print(f" Excel columns: {df.columns.tolist()}")
+        print(f" Total rows: {len(df)}")
 
-        # Clean column names (strip whitespace and convert to lowercase)
+        # Clean column names
         df.columns = df.columns.str.strip().str.lower()
+
+        # Column mapping
+        column_mapping = {
+            'first name': 'first_name',
+            'middle name': 'middle_name',
+            'last name': 'last_name',
+        }
+        
+        df = df.rename(columns=column_mapping)
+        print(f"📊 Columns after mapping: {df.columns.tolist()}")
 
         # Get or create attendance record 
         with transaction.atomic():
@@ -557,64 +592,101 @@ def upload_attendance(request):
                 service_type=service_type
             )
             
-            print(f"{'✨ Created new' if created else '🔄 Updated existing'} attendance record")
+            print(f"{' Created new' if created else ' Updated existing'} attendance record")
 
-            # Clear existing attendance for this record 
+            # Clear existing attendance
             Attendance.objects.filter(record=attendance_record).delete()
 
             # Track statistics 
-            present_members = []
+            present_member_ids = []
             not_found_members = []
+            matched_count = 0
 
-            # Process Excel rows - matching first_name, last_name, middle_name
+            # Process Excel rows - IMPROVED MATCHING
             for idx, row in df.iterrows():
                 first_name = str(row.get('first_name', '')).strip()
                 last_name = str(row.get('last_name', '')).strip()
                 middle_name = str(row.get('middle_name', '')).strip()
 
+                print(f"\n🔍 Row {idx + 2}: Searching for {first_name} {middle_name} {last_name}")
+
                 # Skip if essential names are missing 
                 if not first_name or not last_name or first_name.lower() == 'nan' or last_name.lower() == 'nan':
+                    print(f"⚠️ Skipping - invalid name")
                     continue
                 
-                # Handle middle name (could be empty)
-                if middle_name.lower() == 'nan' or not middle_name:
+                # Clean middle name
+                if middle_name.lower() == 'nan' or not middle_name or middle_name == '':
                     middle_name = None
                 
+                member = None
+                
                 try:
-                    # Try to find member by first_name, last_name, and middle_name
+                    # Strategy 1: Try exact match with all names
                     if middle_name:
-                        member = Members.objects.get(
-                            first_name__iexact=first_name,
-                            last_name__iexact=last_name,
-                            middle_name__iexact=middle_name
+                        try:
+                            member = Members.objects.get(
+                                first_name__iexact=first_name,
+                                last_name__iexact=last_name,
+                                middle_name__iexact=middle_name
+                            )
+                            print(f" Found exact match with middle name: {member.get_full_name()}")
+                        except Members.DoesNotExist:
+                            print(f" No exact match with middle name")
+                            pass
+                    
+                    # Strategy 2: Try without middle name if not found
+                    if not member:
+                        try:
+                            # Find by first and last name only (ignore middle name)
+                            members = Members.objects.filter(
+                                first_name__iexact=first_name,
+                                last_name__iexact=last_name
+                            )
+                            
+                            if members.count() == 1:
+                                member = members.first()
+                                print(f" Found match by first+last name: {member.get_full_name()}")
+                            elif members.count() > 1:
+                                # Multiple matches - use first one
+                                member = members.first()
+                                print(f" Multiple matches found, using first: {member.get_full_name()}")
+                            else:
+                                print(f" No match found")
+                        except Exception as e:
+                            print(f" Error searching: {str(e)}")
+                    
+                    # If member found, mark as present
+                    if member:
+                        Attendance.objects.create(
+                            member=member,
+                            record=attendance_record,
+                            present=True
                         )
+                        present_member_ids.append(member.id)
+                        matched_count += 1
+                        print(f" Marked present: {member.get_full_name()}")
                     else:
-                        # If no middle name, find by first and last name only
-                        member = Members.objects.get(
-                            first_name__iexact=first_name,
-                            last_name__iexact=last_name,
-                            middle_name__isnull=True
-                        )
+                        full_name = f"{first_name} {middle_name} {last_name}" if middle_name else f"{first_name} {last_name}"
+                        not_found_members.append(full_name)
+                        print(f" Not found in database: {full_name}")
                     
-                    Attendance.objects.create(
-                        member=member,
-                        record=attendance_record,
-                        present=True
-                    )
-                    present_members.append(member.id)
-                    
-                except Members.DoesNotExist:
+                except Exception as e:
                     full_name = f"{first_name} {middle_name} {last_name}" if middle_name else f"{first_name} {last_name}"
                     not_found_members.append(full_name)
-                    
-                except Members.MultipleObjectsReturned:
-                    # If multiple members found, log it
-                    full_name = f"{first_name} {middle_name} {last_name}" if middle_name else f"{first_name} {last_name}"
-                    not_found_members.append(f"{full_name} (duplicate)")
+                    print(f" Error processing {full_name}: {str(e)}")
+            
+            print(f"\n Processing complete:")
+            print(f"   Matched: {matched_count}")
+            print(f"   Not found: {len(not_found_members)}")
             
             # Get absent members
             all_members = Members.objects.all()
-            absent_members = all_members.exclude(id__in=present_members)
+            absent_members = all_members.exclude(id__in=present_member_ids)
+            
+            print(f"Total members: {all_members.count()}")
+            print(f"Present: {len(present_member_ids)}")
+            print(f"Absent: {absent_members.count()}")
             
             # Create absent records
             for member in absent_members:
@@ -624,20 +696,21 @@ def upload_attendance(request):
                     present=False
                 )
             
-            print(f"✅ Present: {len(present_members)}, Absent: {absent_members.count()}")
+            print(f" Attendance saved successfully")
             
             # Return JSON response
             return Response({
                 'id': attendance_record.id,
                 'message': 'Attendance uploaded successfully',
-                'present_count': len(present_members),
+                'present_count': len(present_member_ids),
                 'absent_count': absent_members.count(),
-                'not_found': not_found_members[:5] if not_found_members else [],
-                'total_not_found': len(not_found_members)
+                'not_found': not_found_members[:10] if not_found_members else [],
+                'total_not_found': len(not_found_members),
+                'total_processed': len(df)
             }, status=status.HTTP_201_CREATED)
             
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
+        print(f" Fatal Error: {str(e)}")
         import traceback
         traceback.print_exc()
         
@@ -645,7 +718,6 @@ def upload_attendance(request):
             {'error': f'Error processing file: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
 
 # ============================================
 # ATTENDANCE REPORT - GET SINGLE RECORD DETAILS
@@ -713,57 +785,71 @@ def attendance_report(request, pk):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def export_attendance_excel(request, pk):
-    """Export attendance to Excel file"""
     print(f"📥 Exporting attendance for record ID: {pk}")
-    
-    record = get_object_or_404(AttendanceRecord, pk=pk)
-    
-    # Create Excel writer
-    output = BytesIO()
-    writer = pd.ExcelWriter(output, engine='xlsxwriter')
-    
-    # Present members
-    present_data = []
-    for att in Attendance.objects.filter(record=record, present=True).select_related('member'):
-        present_data.append({
-            'First Name': att.member.first_name,
-            'Middle Name': att.member.middle_name or '',
-            'Last Name': att.member.last_name,
-            'Phone': att.member.phone_number,
-            'Gender': att.member.get_gender_display(),
-            'Status': 'PRESENT'
-        })
-    
-    # Absent members
-    absent_data = []
-    for att in Attendance.objects.filter(record=record, present=False).select_related('member'):
-        absent_data.append({
-            'First Name': att.member.first_name,
-            'Middle Name': att.member.middle_name or '',
-            'Last Name': att.member.last_name,
-            'Phone': att.member.phone_number,
-            'Gender': att.member.get_gender_display(),
-            'Status': 'ABSENT'
-        })
-    
-    # Write to Excel
-    if present_data:
-        pd.DataFrame(present_data).to_excel(writer, sheet_name='Present', index=False)
-    if absent_data:
-        pd.DataFrame(absent_data).to_excel(writer, sheet_name='Absent', index=False)
-    
-    writer.close()
-    output.seek(0)
-    
-    print(f"✅ Excel file generated")
-    
-    response = HttpResponse(
-        output.read(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = f'attachment; filename=attendance_{record.date}.xlsx'
-    
-    return response
+    try:
+        record = get_object_or_404(AttendanceRecord, pk=pk)
+
+        output = BytesIO()
+        writer = pd.ExcelWriter(output, engine='xlsxwriter')
+
+        present_data = []
+        for att in Attendance.objects.filter(record=record, present=True).select_related('member'):
+            present_data.append({
+                'First Name': att.member.first_name,
+                'Middle Name': att.member.middle_name or '',
+                'Last Name': att.member.last_name,
+                'Phone': att.member.phone_number,
+                'Gender': att.member.get_gender_display(),
+                'Status': 'PRESENT'
+            })
+
+        absent_data = []
+        for att in Attendance.objects.filter(record=record, present=False).select_related('member'):
+            absent_data.append({
+                'First Name': att.member.first_name,
+                'Middle Name': att.member.middle_name or '',
+                'Last Name': att.member.last_name,
+                'Phone': att.member.phone_number,
+                'Gender': att.member.get_gender_display(),
+                'Status': 'ABSENT'
+            })
+
+        print("📊 Present count:", len(present_data))
+        print("📊 Absent count:", len(absent_data))
+
+        # guarantee at least one sheet
+        if not present_data and not absent_data:
+            print("⚠ No data found — creating empty sheet")
+            pd.DataFrame([{"Info": "No attendance data"}]).to_excel(writer, sheet_name='Summary', index=False)
+        else:
+
+            #if present_data:
+             #   pd.DataFrame(present_data).to_excel(writer, sheet_name='Present', index=False)
+            if absent_data:
+                pd.DataFrame(absent_data).to_excel(writer, sheet_name='Absent', index=False)
+
+        # Try closing the writer
+        try:
+            writer.close()
+        except Exception as e:
+            print("❌ Error closing Excel writer:", str(e))
+            raise
+
+        output.seek(0)
+
+        clean_date = record.date.strftime("%Y-%m-%d")
+        response = HttpResponse(
+            output.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=attendance_{clean_date}.xlsx'
+
+        print("✅ Excel file generated")
+        return response
+
+    except Exception as error:
+        print("❌ EXPORT ERROR:", str(error))
+        return Response({"error": str(error)}, status=500)
 
 
 # ============================================

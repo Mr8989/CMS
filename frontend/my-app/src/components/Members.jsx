@@ -5,7 +5,7 @@ import { useMembersStore } from "../stores/memberStore";
 import {useAuthStore} from "../stores/authStore"
 
 function Members() {
-  const { members, loading, fetchMembers, deleteMember } = useMembersStore();
+  const { members, loading, fetchMembers, deleteMember} = useMembersStore();
   const [searchTerm, setSearchTerm] = useState("");
   const {user} = useAuthStore()
   const navigate = useNavigate();
@@ -30,6 +30,7 @@ function Members() {
     e.preventDefault();
     fetchMembers({ search: searchTerm, ...filters });
   };
+
 
   const handleDelete = async (id, name) => {
     if (window.confirm(`Are you sure you want to delete ${name}?`)) {

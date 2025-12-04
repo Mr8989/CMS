@@ -14,7 +14,7 @@ export const useMembersStore = create((set, get) => ({
         set({ loading: true });
         const token = localStorage.getItem('accessToken')
         try {
-            const params = new URLSearchParams(filters);
+            const params = new URLSearchParams(filters).toString();
             const res = await axiosInstance.get(`api/members/?${params}`,{
                 headers:{
                     'Authorization': `Bearer ${token}`,
@@ -25,7 +25,7 @@ export const useMembersStore = create((set, get) => ({
             return res.data;
         } catch (error) {
             set({ loading: false });
-            toast.error('Failed to import members');
+            toast.error('Failed to fetch members');
             throw error;
         }
     },
@@ -33,8 +33,14 @@ export const useMembersStore = create((set, get) => ({
     // Get single member
     fetchMember: async (id) => {
         set({ loading: true });
+        const token = localStorage.getItem('accessToken')
         try {
-            const res = await axiosInstance.get(`api/members/${id}/`);
+            const res = await axiosInstance.get(`api/members/${id}/`, {
+                headers:{
+                    'Authorization':`Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
             set({ currentMember: res.data, loading: false });
             return res.data;
         } catch (error) {
@@ -47,8 +53,14 @@ export const useMembersStore = create((set, get) => ({
     // Create member
     createMember: async (memberData) => {
         set({ loading: true });
+        const token = localStorage.getItem('accessToken')
         try {
-            const res = await axiosInstance.post('api/members/create/', memberData);
+            const res = await axiosInstance.post('api/members/create/', memberData, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
             toast.success('Member created successfully!');
             set({ loading: false });
 
@@ -84,8 +96,14 @@ export const useMembersStore = create((set, get) => ({
 
     // Delete member
     deleteMember: async (id) => {
+        const token = localStorage.getItem('accessToken')
         try {
-            await axiosInstance.delete(`api/members/${id}/delete/`);
+            await axiosInstance.delete(`api/members/${id}/delete/`, {
+                headers:{
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
 
             // Remove from local state
             set(state => ({
@@ -132,8 +150,14 @@ export const useMembersStore = create((set, get) => ({
 
     // Fetch statistics
     fetchStatistics: async () => {
+        const token = localStorage.getItem('accessToken')
         try {
-            const res = await axiosInstance.get('api/members/statistics/');
+            const res = await axiosInstance.get('api/members/statistics/',{
+                headers:{
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                }
+            });
             set({ statistics: res.data });
             return res.data;
         } catch (error) {
@@ -141,4 +165,5 @@ export const useMembersStore = create((set, get) => ({
             throw error;
         }
     },
+
 }))

@@ -1,10 +1,12 @@
 import React from 'react'
+import AttendanceHistory from './AttendanceHistory'
+
 
 function Report() {
   return (
-    <div>
-      <p>Report view</p>
-    </div>
+   <div className='flex text-black overflow-hidden gap-10 m-10 justify-center'> 
+    <AttendanceHistory/>
+   </div>
   )
 }
 
